@@ -45,13 +45,13 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
     member_arry
   end
 
-  def self.prefetch(resources)
-    instances.each do |int|
-      if (resource = resources[int.name])
-        resource.provider = int
-      end
-    end
-  end
+  # def self.prefetch(resources)
+  #   instances.each do |int|
+  #     if (resource = resources[int.name])
+  #       resource.provider = int
+  #     end
+  #   end
+  # end
 
   def self.do_login
     require 'yaml'
