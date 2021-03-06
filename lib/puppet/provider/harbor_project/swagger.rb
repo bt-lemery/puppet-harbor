@@ -17,6 +17,7 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
         member_groups: get_project_member_group_names(project.project_id),
         guests:        get_project_guest_names(project.project_id),
         guest_groups:  get_project_guest_group_names(project.project_id),
+        retention_rules:  get_retention_rules(project.project_id),
         provider:      :swagger,
       )
     end
@@ -88,6 +89,11 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
     names = members.map { |m| m.entity_name }
     names.sort!
     names
+  end
+  
+  def self.get_retention_rules(project_id)
+    api_instance = do_login
+    retention_rules = api_instance[:legacy_client].rententions_id_get(project_id)
   end
 
   def self.prefetch(resources)
@@ -174,6 +180,10 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
     unless resource[:guest_groups].nil?
       guest_groups = resource[:guest_groups]
       add_guest_groups_to_project(id, guest_groups)
+    end
+    unless resource[:retention_rules].nil?
+      retention_rules = resource[:retention_rules]
+      add_retention_rules(id, retention_rules)
     end
   end
 
@@ -270,6 +280,41 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
     end
   end
 
+  def add_retention_rules(project_id, retention_rules)
+    retention_rules.sort!
+    retention_rules.each do |rule|
+      opts = {
+        rules [
+          {
+            action: 'retain',
+            disabled: false,
+            params: {
+              rule['template']: rule['count']
+            }
+            scope_selectors: {
+              repository: [
+                {
+                  pattern: rule['repository_match']
+                }
+              ]
+            },
+            tag_selectors: [
+              {
+                pattern: rule['tag_match']
+              }
+            ]
+          },
+          template: rule['template']
+        ],
+        scope: {
+          level: "project",
+          ref: project_id
+        }
+      }
+      post_retention_rules(project_id, opts)
+    end
+  end
+
   def post_project_members(project_id, opts)
     api_instance = self.class.do_login
     begin
@@ -278,6 +323,17 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
       puts "Exception when calling ProductsApi->projects_project_id_members_post: #{e}"
     rescue Harbor1Client::ApiError => e
       puts "Exception when calling ProductsApi->projects_project_id_members_post: #{e}"
+    end
+  end
+
+  def post_retention_rules(project_id)
+    api_instance = self.class.do_login
+    begin
+      api_instance[:legacy_client].retentions_post(project_id, opts)
+    rescue Harbor2LegacyClient::ApiError => e
+      puts "Exception when calling ProductsApi->retentions_post: #{e}"
+    rescue Harbor1Client::ApiError => e
+      puts "Exception when calling ProductsApi->retentions_post: #{e}"
     end
   end
 
@@ -363,4 +419,6 @@ Puppet::Type.type(:harbor_project).provide(:swagger) do
       puts "Exception when calling ProductsApi->projects_project_id_delete: #{e}"
     end
   end
+
+
 end
